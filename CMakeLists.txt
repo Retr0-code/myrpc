@@ -21,7 +21,7 @@ set(SERVER_HEAD
 
 add_library(${PROJECT_NAME}_server_objs STATIC ${SERVER_SRC})
 target_include_directories(${PROJECT_NAME}_server_objs PUBLIC ${DIR_INCLUDE})
-add_executable(${PROJECT_NAME}-server ${DIR_SOURCE}/server/example_tcp.c)
+add_executable(${PROJECT_NAME}-server ${DIR_SOURCE}/server/main.c)
 
 target_include_directories(${PROJECT_NAME}-server PUBLIC ${DIR_INCLUDE})
 target_link_libraries(${PROJECT_NAME}-server ${PROJECT_NAME}_server_objs)

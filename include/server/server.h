@@ -23,21 +23,18 @@
 #include "network_exceptions.h"
 
 /*
-    Server class provided to ditribute threads to remote clients.
+    sock_server_t struct provided to ditribute threads to remote clients.
     Only one instanse of this class is avalible for using. If you
     try to create one more you would get exception
     "server_instance_error" with address of object provided.
 */
-typedef struct Server
+typedef struct sock_server_t
 {
-    uint16_t                _clients_max_amount;    // By default is 1000
-    uint16_t                _clients_amount;        // Stores active clients amount
-    int                     _socket_descriptor;     // Descriptor of server socket
-    thrd_t                  _listener;              // Listener thread
-    atomic_int              _stop_listening;        // State variable for listening thread
     struct sockaddr         *_address;              // Address descriptor
-    struct ClientInterface  **_clients;             // Pointers to clients
-} Server;
+    atomic_int              _stop_listening;        // State variable for listening thread
+    int                     _socket_descriptor;     // Descriptor of server socket
+    uint16_t                _clients_amount;        // Stores active clients amount
+} sock_server_t;
 
 /*  Creates Server instanse with parameters:
 
@@ -45,36 +42,25 @@ typedef struct Server
      * const char* lhost - local IPv4 or IPv6
      * in_port_t lport - port to run service on
      * bool use_ipv6 - specifies protocol version IPv6 (by default is false)
-     * uint16_t clients_max_amount - specifies maximum of clients connected to the server
 
     Exceptions:
      * server_instance_error
      * socket_init_error
      * socket_bind_error
 */
-int Server_create(
-    Server *server,
+int sock_server_create(
+    sock_server_t *server,
     const char* lhost,
     in_port_t lport,
-    int use_ipv6,
-    uint16_t clients_max_amount
+    int use_ipv6
 );
-    
-void Server_close(Server *server);
 
-void Server_stop(Server *server);
+void sock_server_close(sock_server_t *server);
 
-/*  Runs detached thread that accepts new clientreturns its id
+void sock_server_stop(sock_server_t *server);
 
-    Returns thread's errors
+int sock_server_listen_connection(sock_server_t *server, struct client_interface_t *client);
 
-    Exceptions:
-    * all exceptions of "thrd_create( Function&& f, Args&&... args )" constructor
-*/
-// int Server_listen(Server *server);
+int sock_server_accept_client(sock_server_t *server, struct client_interface_t *client);
 
-int Server_listen_connection(Server *server, struct ClientInterface *client);
-
-int Server_accept_client(Server *server, struct ClientInterface *client);
-
-void Server_disconnect(Server *server, uint32_t client_id);
+void sock_server_disconnect(sock_server_t *server, uint32_t client_id);

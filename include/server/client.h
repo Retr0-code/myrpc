@@ -9,15 +9,15 @@
 #include "server/server.h"
 #include "network_exceptions.h"
 
-typedef struct ClientInterface
+typedef struct client_interface_t
 {
-    uint32_t                _id;
-    int32_t                 _socket_descriptor;
-    struct Server *const    _server;
-} ClientInterface;
+    struct sock_server_t *_server;
+    int32_t     _socket_descriptor;
+    uint32_t    _id;
+} client_interface_t;
 
-int ClientInterface_create(ClientInterface *client, int sock_fd, struct Server *const server);
+int client_interface_create(client_interface_t *client, int sock_fd, struct sock_server_t *const server);
 
-void ClientInterface_close(ClientInterface *client);
+void client_interface_close(client_interface_t *client);
 
-void ClientInterface_close_connection(ClientInterface *client);
+void client_interface_close_connection(client_interface_t *client);
