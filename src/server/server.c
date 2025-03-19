@@ -18,7 +18,8 @@ int sock_server_create(
     sock_server_t *server,
     const char *lhost,
     in_port_t lport,
-    int use_ipv6)
+    int use_ipv6,
+    int sock_type)
 {
     if (server == NULL)
     {
@@ -36,7 +37,7 @@ int sock_server_create(
         bind_func = &sock_server_bind_ipv6;
     }
 
-    server->_socket_descriptor = socket(domain, SOCK_STREAM, 0);
+    server->_socket_descriptor = socket(domain, sock_type, 0);
     if (server->_socket_descriptor == -1)
         return socket_error_init;
 

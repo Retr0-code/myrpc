@@ -10,6 +10,7 @@ set(DIR_SOURCE "src")
 set(SERVER_SRC
     ${DIR_SOURCE}/server/server.c
     ${DIR_SOURCE}/server/client.c
+    ${DIR_SOURCE}/myrpc/myrpc.c
 )
 
 set(SERVER_HEAD
@@ -17,11 +18,12 @@ set(SERVER_HEAD
     ${DIR_INCLUDE}/network_exceptions.h
     ${DIR_INCLUDE}/server/server.h
     ${DIR_INCLUDE}/server/client.h
+    ${DIR_INCLUDE}/myrpc/myrpc.h
 )
 
 add_library(${PROJECT_NAME}_server_objs STATIC ${SERVER_SRC})
 target_include_directories(${PROJECT_NAME}_server_objs PUBLIC ${DIR_INCLUDE})
-add_executable(${PROJECT_NAME}-server ${DIR_SOURCE}/server/main.c)
+add_executable(${PROJECT_NAME}-server ${DIR_SOURCE}/main.c)
 
 target_include_directories(${PROJECT_NAME}-server PUBLIC ${DIR_INCLUDE})
 target_link_libraries(${PROJECT_NAME}-server ${PROJECT_NAME}_server_objs)

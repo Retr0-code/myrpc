@@ -52,7 +52,8 @@ int sock_server_create(
     sock_server_t *server,
     const char* lhost,
     in_port_t lport,
-    int use_ipv6
+    int use_ipv6,
+    int sock_type
 );
 
 void sock_server_close(sock_server_t *server);

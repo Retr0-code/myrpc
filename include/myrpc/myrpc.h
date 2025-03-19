@@ -17,17 +17,24 @@ typedef struct
     uint16_t port;
 } rpc_server_config_t;
 
-rpc_server_config_t default_config = {
-    SOCK_STREAM,
-    0,
-    "127.0.0.1",
-    135
-};
+typedef struct
+{
 
-int rpc_server_read_config(rpc_server_config_t *config);
+} rpc_init_connection_t;
 
-int rpc_server_start(rpc_server_t *server, const rpc_server_config_t *config);
+typedef enum
+{
+    rpc_success,
+    rpc_invalid_args,
+    rpc_config_error,
+} rpc_error_e;
+
+int rpc_server_read_config(rpc_server_config_t *config, const char *filepath);
+
+int rpc_server_create(rpc_server_t *server, const rpc_server_config_t *config);
 
 int rpc_server_run(rpc_server_t *server);
 
-int rpc_server_stop(rpc_server_t *server);
+void rpc_server_stop(rpc_server_t *server);
+
+void rpc_server_close(rpc_server_t *server);
