@@ -8,7 +8,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
-#include "myrpc.h"
+#include <threads.h>
 
 #ifndef RPC_DEFAULT_CONFIG
 #define RPC_DEFAULT_CONFIG
@@ -16,17 +16,17 @@ rpc_server_config_t default_config = {
     SOCK_STREAM,
     0,
     "127.0.0.1",
-    135
-};
+    135};
 #endif
 
 static rpc_server_t *rpc_server_static = NULL;
 
 static struct option arguments[] = {
-    {"port",     required_argument, 0, 'p'},
-    {"host",     required_argument, 0, 'h'},
+    {"port", required_argument, 0, 'p'},
+    {"host", required_argument, 0, 'h'},
     {"socktype", required_argument, 0, 's'},
     {"use_ipv6", required_argument, 0, '6'},
+    {"access_list", required_argument, 0, 'a'}
 };
 static const int required_argc = sizeof(arguments) / sizeof(struct option) + 1;
 
@@ -37,13 +37,13 @@ static int str_to_socket_type(const char *str_socktype)
         const char *str;
         int value;
     } conversion_array[] = {
-        {"SOCK_STREAM",     SOCK_STREAM},
-        {"SOCK_DGRAM",      SOCK_DGRAM},
-        {"SOCK_RAW",        SOCK_RAW},
-        {"SOCK_RDM",        SOCK_RDM},
-        {"SOCK_SEQPACKET",  SOCK_SEQPACKET},
-        {"SOCK_DCCP",       SOCK_DCCP},
-        {"SOCK_PACKET",     SOCK_PACKET}
+        {"SOCK_STREAM", SOCK_STREAM},
+        {"SOCK_DGRAM", SOCK_DGRAM},
+        // {"SOCK_RAW",        SOCK_RAW},
+        // {"SOCK_RDM",        SOCK_RDM},
+        // {"SOCK_SEQPACKET",  SOCK_SEQPACKET},
+        // {"SOCK_DCCP",       SOCK_DCCP},
+        // {"SOCK_PACKET",     SOCK_PACKET}
     };
 
     for (size_t i = 0; i < sizeof(conversion_array) / sizeof(struct pair_t); ++i)
@@ -60,6 +60,11 @@ static void signal_handler_stop(int signal)
     exit(0);
 }
 
+static int rpc_read_access_list(const char *al_path, rpc_access_list_t *al)
+{
+
+}
+
 static int rpc_parse_config(rpc_server_config_t *config, char **argv, int argc)
 {
     int arg_index = 0;
@@ -74,36 +79,47 @@ static int rpc_parse_config(rpc_server_config_t *config, char **argv, int argc)
 
         switch (option)
         {
-            case 'p':
-            {
-                uint16_t port = atoi(optarg);
-                config->port = port == 0 ? config->port : port;
-                break;
-            }
+        case 'p':
+        {
+            uint16_t port = atoi(optarg);
+            config->port = port == 0 ? config->port : port;
+            break;
+        }
 
-            case 'h':
-            {
-                config->address = optarg;
-                break;
-            }
-            case 's':
-            {
-                int sock_type = str_to_socket_type(optarg);
-                config->socket_type = sock_type == -1 ? config->socket_type : sock_type;
-                break;
-            }
+        case 'h':
+        {
+            config->address = optarg;
+            break;
+        }
 
-            case '6':
-            {
-                config->use_ipv6 = atoi(optarg);
-                break;
-            }
+        case 's':
+        {
+            int sock_type = str_to_socket_type(optarg);
+            config->socket_type = sock_type == -1 ? config->socket_type : sock_type;
+            break;
+        }
 
-            default:
-                break;
+        case '6':
+        {
+            config->use_ipv6 = (atoi(optarg) > 0);
+            break;
+        }
+
+        case 'a':
+        {
+            if (rpc_read_access_list(optarg, &config->access_list) == -1)
+                return -1;
+
+            break;
+        }
+
+        default:
+            break;
         }
         flag |= (1 << arg_index);
     }
+
+    return 0;
 }
 
 int rpc_server_read_config(rpc_server_config_t *config, const char *filepath)
@@ -161,35 +177,40 @@ int rpc_server_create(rpc_server_t *server, const rpc_server_config_t *config)
 
     int status = rpc_success;
     if ((status = sock_server_create(
-        &server->sock_server,
-        config->address,
-        config->port,
-        config->use_ipv6,
-        config->socket_type
-    )) != socket_error_success)
+             &server->sock_server,
+             config->address,
+             config->port,
+             config->use_ipv6,
+             config->socket_type)) != socket_error_success)
     {
         fprintf(stderr, "%s Failed to create server\n", ERROR);
         return status;
     }
 
-    signal(SIGINT,  &signal_handler_stop);
+    signal(SIGINT, &signal_handler_stop);
     signal(SIGKILL, &signal_handler_stop);
     signal(SIGTERM, &signal_handler_stop);
 
     return rpc_success;
 }
 
+static int rpc_client_handle(client_args_t *args)
+{
+
+}
+
 int rpc_server_run(rpc_server_t *server)
 {
-    char msg[BUFFER_SIZE];
-    while (!sock_server_listen_connection(&server->sock_server, &server->client))
+    thread_node_t *threads = malloc(sizeof(thread_node_t));
+    thread_node_t *threads_base = threads;
+    while (!sock_server_listen_connection(&server->sock_server, &threads->client_args.client))
     {
-        memset(msg, 0, BUFFER_SIZE);
-        if (read(server->client._socket_descriptor, msg, BUFFER_SIZE) != 0)
-            printf("Client sent message: %s\n", msg);
+        threads->next = malloc(sizeof(thread_node_t));
+        threads = threads->next;
+        threads->next = NULL;
 
-        if (strncmp("close\n", msg, 6) == 0)
-            client_interface_close_connection(&server->client);
+        threads->client_args.al = &server->config.access_list;
+        thrd_create(&threads->thread, &rpc_client_handle, &threads->client_args);
     }
 }
 
@@ -200,6 +221,6 @@ void rpc_server_stop(rpc_server_t *server)
 
 void rpc_server_close(rpc_server_t *server)
 {
-    client_interface_close(&rpc_server_static->client);
+    rpc_server_stop(server);
     sock_server_close(&rpc_server_static->sock_server);
 }

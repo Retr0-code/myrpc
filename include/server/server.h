@@ -3,12 +3,9 @@
 // STD headers
 #include <stdio.h>
 #include <string.h>
-#include <threads.h>
 #include <stdatomic.h>
 
 // Net linux headers
-#include <fcntl.h>
-#include <netdb.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
@@ -19,6 +16,7 @@
 
 // Own headers
 #include "status.h"
+#include "sockutils.h"
 #include "server/client.h"
 #include "network_exceptions.h"
 
@@ -30,10 +28,11 @@
 */
 typedef struct sock_server_t
 {
-    struct sockaddr         *_address;              // Address descriptor
-    atomic_int              _stop_listening;        // State variable for listening thread
-    int                     _socket_descriptor;     // Descriptor of server socket
-    uint16_t                _clients_amount;        // Stores active clients amount
+    sockaddr_u      _address;              // Address descriptor
+    atomic_int      _stop_listening;        // State variable for listening thread
+    int             _socket_descriptor;     // Descriptor of server socket
+    int             _use_ipv6;
+    uint16_t        _clients_amount;        // Stores active clients amount
 } sock_server_t;
 
 /*  Creates Server instanse with parameters:
