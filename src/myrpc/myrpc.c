@@ -1,6 +1,8 @@
+#include "list.h"
 #include "myrpc/myrpc.h"
 #include "network_exceptions.h"
 
+#include <pwd.h>
 #include <errno.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -60,9 +62,42 @@ static void signal_handler_stop(int signal)
     exit(0);
 }
 
+static void thread_node_destructor(void *ptr)
+{
+    thread_node_t *node = ptr;
+    thrd_join(node->thread, NULL);
+}
+
 static int rpc_read_access_list(const char *al_path, rpc_access_list_t *al)
 {
+    if (al_path == NULL || al == NULL)
+    {
+        errno = EINVAL;
+        return -1;
+    }
 
+    FILE *al_file = fopen(al_path, "r");
+    if (al_file == NULL)
+        return -1;
+
+    char *username = NULL;
+    size_t capacity = 0;
+    passwd *user;
+    while (getline(&username, &capacity, al_file) != -1)
+    {
+        user = getpwnam(username);
+        if (user == NULL)
+            continue;
+        
+        al->uid = user->pw_uid;
+        al->next = malloc(sizeof(rpc_access_list_t));
+        al = al->next;
+    }
+    al->next = NULL;
+
+    free(username);
+    fclose(al_file);
+    return 0;
 }
 
 static int rpc_parse_config(rpc_server_config_t *config, char **argv, int argc)
@@ -72,7 +107,7 @@ static int rpc_parse_config(rpc_server_config_t *config, char **argv, int argc)
     int args_amount = required_argc - 1;
     int flag = 0;
 
-    while ((option = getopt_long(argc, argv, "p:h:s:6:", arguments, &arg_index)) != -1)
+    while ((option = getopt_long(argc, argv, "p:h:s:6:a:", arguments, &arg_index)) != -1)
     {
         if (flag & (1 << arg_index))
             continue;
@@ -212,6 +247,9 @@ int rpc_server_run(rpc_server_t *server)
         threads->client_args.al = &server->config.access_list;
         thrd_create(&threads->thread, &rpc_client_handle, &threads->client_args);
     }
+
+    linked_list_delete(threads_base, &thread_node_destructor);
+    return 0;
 }
 
 void rpc_server_stop(rpc_server_t *server)
@@ -223,4 +261,5 @@ void rpc_server_close(rpc_server_t *server)
 {
     rpc_server_stop(server);
     sock_server_close(&rpc_server_static->sock_server);
+    linked_list_delete(&server->config.access_list, ll_destructor_default);
 }
