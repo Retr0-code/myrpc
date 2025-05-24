@@ -35,20 +35,15 @@ typedef struct
     uint16_t port;
 } rpc_server_config_t;
 
-typedef struct
-{
-    char     *username;
-    uint32_t serialization_type;
-    uint32_t username_length;
-} rpc_init_connection_t;
-
-typedef char *rpc_command_t;
-
 typedef enum
 {
-    rpc_success,
-    rpc_invalid_args,
-    rpc_config_error,
+    rpce_success,
+    rpce_invalid_args,
+    rpce_config_error,
+    rpce_user,
+    rpce_command,
+    rpce_output,
+    rpce_resource
 } rpc_error_e;
 
 int rpc_server_read_config(rpc_server_config_t *config, const char *filepath);

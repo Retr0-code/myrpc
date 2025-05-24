@@ -1,6 +1,7 @@
 #include "list.h"
-#include "myrpc/myrpc.h"
+#include "myrpc/myrpc_proto.h"
 #include "network_exceptions.h"
+#include "myrpc/myrpc_server.h"
 
 #include <pwd.h>
 #include <errno.h>
@@ -28,8 +29,7 @@ static struct option arguments[] = {
     {"host", required_argument, 0, 'h'},
     {"socktype", required_argument, 0, 's'},
     {"use_ipv6", required_argument, 0, '6'},
-    {"access_list", required_argument, 0, 'a'}
-};
+    {"access_list", required_argument, 0, 'a'}};
 static const int required_argc = sizeof(arguments) / sizeof(struct option) + 1;
 
 static int str_to_socket_type(const char *str_socktype)
@@ -73,22 +73,21 @@ static int rpc_read_access_list(const char *al_path, rpc_access_list_t *al)
     if (al_path == NULL || al == NULL)
     {
         errno = EINVAL;
-        return -1;
+        return rpce_invalid_args;
     }
 
     FILE *al_file = fopen(al_path, "r");
     if (al_file == NULL)
-        return -1;
+        return rpce_resource;
 
     char *username = NULL;
     size_t capacity = 0;
-    passwd *user;
     while (getline(&username, &capacity, al_file) != -1)
     {
-        user = getpwnam(username);
+        passwd *user = getpwnam(username);
         if (user == NULL)
             continue;
-        
+
         al->uid = user->pw_uid;
         al->next = malloc(sizeof(rpc_access_list_t));
         al = al->next;
@@ -97,9 +96,10 @@ static int rpc_read_access_list(const char *al_path, rpc_access_list_t *al)
 
     free(username);
     fclose(al_file);
-    return 0;
+    return rpce_success;
 }
 
+// TODO add logging of config default/errors
 static int rpc_parse_config(rpc_server_config_t *config, char **argv, int argc)
 {
     int arg_index = 0;
@@ -142,8 +142,9 @@ static int rpc_parse_config(rpc_server_config_t *config, char **argv, int argc)
 
         case 'a':
         {
-            if (rpc_read_access_list(optarg, &config->access_list) == -1)
-                return -1;
+            if (rpc_read_access_list(optarg, &config->access_list) != rpce_success)
+                //TODO set to default
+                return rpce_user;
 
             break;
         }
@@ -154,7 +155,7 @@ static int rpc_parse_config(rpc_server_config_t *config, char **argv, int argc)
         flag |= (1 << arg_index);
     }
 
-    return 0;
+    return rpce_success;
 }
 
 int rpc_server_read_config(rpc_server_config_t *config, const char *filepath)
@@ -162,16 +163,16 @@ int rpc_server_read_config(rpc_server_config_t *config, const char *filepath)
     if (config == NULL)
     {
         errno = EINVAL;
-        return rpc_invalid_args;
+        return rpce_invalid_args;
     }
     memcpy(config, &default_config, sizeof(rpc_server_config_t));
 
     if (filepath == NULL)
-        return rpc_success;
+        return rpce_success;
 
     FILE *config_file = fopen(filepath, "r");
     if (config_file == NULL)
-        return rpc_config_error;
+        return rpce_config_error;
 
     char *argv[required_argc];
     int argc = 0;
@@ -198,7 +199,7 @@ int rpc_server_read_config(rpc_server_config_t *config, const char *filepath)
     for (; argc != 1; --argc)
         free(argv[argc]);
 
-    return rpc_success;
+    return rpce_success;
 }
 
 int rpc_server_create(rpc_server_t *server, const rpc_server_config_t *config)
@@ -206,11 +207,11 @@ int rpc_server_create(rpc_server_t *server, const rpc_server_config_t *config)
     if (config == NULL || server == NULL || config->address == NULL || config->port == 0)
     {
         errno = EINVAL;
-        return rpc_invalid_args;
+        return rpce_invalid_args;
     }
     rpc_server_static = server;
 
-    int status = rpc_success;
+    int status = rpce_success;
     if ((status = sock_server_create(
              &server->sock_server,
              config->address,
@@ -222,34 +223,108 @@ int rpc_server_create(rpc_server_t *server, const rpc_server_config_t *config)
         return status;
     }
 
-    signal(SIGINT, &signal_handler_stop);
-    signal(SIGKILL, &signal_handler_stop);
+    signal(SIGINT,  &signal_handler_stop);
     signal(SIGTERM, &signal_handler_stop);
 
-    return rpc_success;
+    return rpce_success;
+}
+
+static int rpc_user_in_list(rpc_access_list_t *al, uid_t uid)
+{
+    for (; al != NULL; al = al->next)
+        if (al->uid == uid)
+            return rpce_success;
+
+    return rpce_user;
+}
+
+static int rpc_try_exec(uid_t uid, char *command)
+{
+
 }
 
 static int rpc_client_handle(client_args_t *args)
 {
+    // Get username
+    char *username = NULL;
+    if (rpc_receive_message(args->client._socket_descriptor, &username) != me_success)
+    {
+        // Log & exit
+        return rpce_user;
+    }
 
+    passwd *record = getpwnam(username);
+    if (record == NULL)
+    {
+        // Log & exit
+        rpc_send_close(args->client._socket_descriptor, rpce_user);
+        return rpce_user;
+    }
+
+    // Check access list
+    if (rpc_user_in_list(args->al, record->pw_uid) != rpce_success)
+    {
+        // Log & exit
+        rpc_send_close(args->client._socket_descriptor, rpce_user);
+        return rpce_user;
+    }
+
+    // Get command
+    char *command = NULL;
+    if (rpc_receive_command(args->client._socket_descriptor, &command) != me_success)
+    {
+        // Log & exit
+        return rpce_command;
+    }
+
+    // Try execute command & Write output to tmpfile
+    if (rpc_try_exec(record->pw_uid, command) != rpce_success)
+    {
+        // Log & exit
+        rpc_send_close(args->client._socket_descriptor, rpce_command);
+        return rpce_command;
+    }
+
+    // Send output
+    return rpce_success;
 }
 
 int rpc_server_run(rpc_server_t *server)
 {
+    if (server == NULL)
+    {
+        errno = EINVAL;
+        return rpce_invalid_args;
+    }
+
     thread_node_t *threads = malloc(sizeof(thread_node_t));
+    if (threads == NULL)
+        return rpce_resource;
+
+    int status = rpce_success;
     thread_node_t *threads_base = threads;
     while (!sock_server_listen_connection(&server->sock_server, &threads->client_args.client))
     {
         threads->next = malloc(sizeof(thread_node_t));
+        if (threads->next == NULL)
+        {
+            status = rpce_resource;
+            break;
+        }
+
         threads = threads->next;
         threads->next = NULL;
 
         threads->client_args.al = &server->config.access_list;
-        thrd_create(&threads->thread, &rpc_client_handle, &threads->client_args);
+        if (thrd_create(&threads->thread, &rpc_client_handle, &threads->client_args) != thrd_success)
+        {
+            status = rpce_resource;
+            break;
+        }
     }
 
     linked_list_delete(threads_base, &thread_node_destructor);
-    return 0;
+    return status;
 }
 
 void rpc_server_stop(rpc_server_t *server)

@@ -10,7 +10,7 @@ set(DIR_SOURCE "src")
 set(SERVER_SRC
     ${DIR_SOURCE}/server/server.c
     ${DIR_SOURCE}/server/client.c
-    ${DIR_SOURCE}/myrpc/myrpc.c
+    ${DIR_SOURCE}/myrpc/myrpc_server.c
 )
 
 set(SERVER_HEAD
@@ -18,7 +18,7 @@ set(SERVER_HEAD
     ${DIR_INCLUDE}/network_exceptions.h
     ${DIR_INCLUDE}/server/server.h
     ${DIR_INCLUDE}/server/client.h
-    ${DIR_INCLUDE}/myrpc/myrpc.h
+    ${DIR_INCLUDE}/myrpc/myrpc_server.h
 )
 
 add_library(${PROJECT_NAME}_server_objs STATIC ${SERVER_SRC})

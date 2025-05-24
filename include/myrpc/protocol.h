@@ -4,15 +4,10 @@
 enum message_type_e
 {
     mt_close,
+    mt_username,
     mt_request,
-    mt_response
-};
-
-enum answer_e
-{
-    a_right,
-    a_less,
-    a_more
+    mt_response,
+    mt_serialization
 };
 
 typedef struct
