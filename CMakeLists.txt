@@ -4,6 +4,7 @@ project(myRPC VERSION 0.1)
 
 # Configure compiler
 set(DIR_INCLUDE "include")
+set(DIR_INCLUDE_MYSYSLOG "mysyslog/include")
 set(DIR_SOURCE "src")
 
 # Server variables
@@ -24,8 +25,13 @@ set(CLIENT_SRC
     ${DIR_SOURCE}/myrpc/myrpc_proto.c
 )
 
+add_subdirectory(mysyslog)
+
 add_library(${PROJECT_NAME}_server_objs STATIC ${SERVER_SRC})
 target_include_directories(${PROJECT_NAME}_server_objs PUBLIC ${DIR_INCLUDE})
+target_include_directories(${PROJECT_NAME}_server_objs PUBLIC ${DIR_INCLUDE_MYSYSLOG})
+target_link_libraries(${PROJECT_NAME}_server_objs mysyslog)
+
 add_executable(${PROJECT_NAME}-server ${DIR_SOURCE}/main_server.c)
 
 target_include_directories(${PROJECT_NAME}-server PUBLIC ${DIR_INCLUDE})
@@ -37,3 +43,4 @@ add_executable(${PROJECT_NAME}-client ${DIR_SOURCE}/main_client.c)
 
 target_include_directories(${PROJECT_NAME}-client PUBLIC ${DIR_INCLUDE})
 target_link_libraries(${PROJECT_NAME}-client ${PROJECT_NAME}_client_objs)
+

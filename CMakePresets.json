@@ -1,18 +1,18 @@
 {
-    "version": 2,
+    "version": 4,
     "configurePresets": [
         {
             "name": "common-flags",
             "hidden": true,
             "generator": "Ninja",
             "cacheVariables": {
-              "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-              "CMAKE_C_COMPILER": "cc"
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_C_COMPILER": "cc"
             }
         },
         {
             "name": "debug",
-            "displayName": "Debug preset",
+            "displayName": "Debug",
             "description": "Enables debugging flags",
             "binaryDir": "${sourceDir}/build/${presetName}",
             "inherits": [
@@ -30,12 +30,26 @@
             "description": "Fully featured Release build",
             "binaryDir": "${sourceDir}/build/${presetName}",
             "inherits": [
-              "common-flags"
+                "common-flags"
             ],
             "cacheVariables": {
-              "CMAKE_BUILD_TYPE": "Release",
-              "CMAKE_C_FLAGS": "-Wall"
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_C_FLAGS": "-Wall"
             }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "debug",
+            "description": "Builds all targets without optimizations",
+            "displayName": "Debug",
+            "configurePreset": "debug"
+        },
+        {
+            "name": "release",
+            "description": "Builds all targets with all warnings and optimizations",
+            "displayName": "Release",
+            "configurePreset": "release"
         }
     ]
 }
