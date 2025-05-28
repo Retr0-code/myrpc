@@ -42,12 +42,7 @@ int sock_server_create(
 void sock_server_close(sock_server_t *server)
 {
     sock_server_stop(server);
-
-    if (shutdown(server->_socket_descriptor, SHUT_RDWR) != 0)
-        fprintf(stderr, "%s Shutdown Server:\t%s", WARNING, strerror(errno));
-
-    if (close(server->_socket_descriptor) != 0)
-        fprintf(stderr, "%s Closing Server:\t%s", WARNING, strerror(errno));
+    socket_shutdown_close(server->_socket_descriptor);
 }
 
 int sock_server_listen_connection(sock_server_t *server, client_interface_t *client)

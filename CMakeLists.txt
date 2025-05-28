@@ -17,21 +17,23 @@ set(SERVER_SRC
     ${DIR_SOURCE}/myrpc/myrpc_proto.c
 )
 
-set(SERVER_HEAD
-    ${DIR_INCLUDE}/list.h
-    ${DIR_INCLUDE}/status.h
-    ${DIR_INCLUDE}/sockutils.h
-    ${DIR_INCLUDE}/network_exceptions.h
-    ${DIR_INCLUDE}/server/server.h
-    ${DIR_INCLUDE}/server/client.h
-    ${DIR_INCLUDE}/myrpc/myrpc_server.h
-    ${DIR_INCLUDE}/myrpc/protocol.h
-    ${DIR_INCLUDE}/myrpc/myrpc_proto.h
+set(CLIENT_SRC
+    ${DIR_SOURCE}/sockutils.c
+    ${DIR_SOURCE}/client/client.c
+    ${DIR_SOURCE}/myrpc/protocol.c
+    ${DIR_SOURCE}/myrpc/myrpc_proto.c
 )
 
 add_library(${PROJECT_NAME}_server_objs STATIC ${SERVER_SRC})
 target_include_directories(${PROJECT_NAME}_server_objs PUBLIC ${DIR_INCLUDE})
-add_executable(${PROJECT_NAME}-server ${DIR_SOURCE}/main.c)
+add_executable(${PROJECT_NAME}-server ${DIR_SOURCE}/main_server.c)
 
 target_include_directories(${PROJECT_NAME}-server PUBLIC ${DIR_INCLUDE})
 target_link_libraries(${PROJECT_NAME}-server ${PROJECT_NAME}_server_objs)
+
+add_library(${PROJECT_NAME}_client_objs STATIC ${CLIENT_SRC})
+target_include_directories(${PROJECT_NAME}_client_objs PUBLIC ${DIR_INCLUDE})
+add_executable(${PROJECT_NAME}-client ${DIR_SOURCE}/main_client.c)
+
+target_include_directories(${PROJECT_NAME}-client PUBLIC ${DIR_INCLUDE})
+target_link_libraries(${PROJECT_NAME}-client ${PROJECT_NAME}_client_objs)

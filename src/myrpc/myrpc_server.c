@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <string.h>
 #include <stdlib.h>
@@ -21,12 +22,15 @@ rpc_server_config_t default_config = {
     "127.0.0.1",
     SOCK_STREAM,
     0,
-    49135
+    135
 };
 #endif
 
-#define TMP_SUFFIX "myRPC_"
-#define TMP_SUFFIX_LEN sizeof(TMP_SUFFIX)
+#define TMP_DIR "/tmp"
+#define TMP_PREFIX TMP_DIR "/myRPC_"
+#define TMP_STDOUT TMP_PREFIX "XXXXXX.stdout"
+#define TMP_STDERR TMP_PREFIX "XXXXXX.stderr"
+#define TMP_SUFFIX_LEN 7
 
 static rpc_server_t *rpc_server_static = NULL;
 
@@ -244,7 +248,17 @@ static int rpc_user_in_list(const rpc_access_list_t *al, uid_t uid)
     return rpce_user;
 }
 
-static int rpc_try_exec(uid_t uid, const rpc_command_t *command, char **output)
+static inline void add_tempfd_flags(int fd)
+{
+    int flags = fcntl(fd, F_GETFL);
+    flags |= O_APPEND; // | ...
+    fcntl(fd, F_SETFL);
+}
+
+static int rpc_try_exec(
+    uid_t uid,
+    const rpc_command_t *command,
+    rpc_output_t *output)
 {
     if (command == NULL || output == NULL)
     {
@@ -252,7 +266,22 @@ static int rpc_try_exec(uid_t uid, const rpc_command_t *command, char **output)
         return rpce_invalid_args;
     }
 
-    int status = rpce_success;
+    char tmpname_stdout[] = TMP_STDOUT;
+    int tmpfd_stdout = mkstemps(tmpname_stdout, TMP_SUFFIX_LEN);
+    if (tmpfd_stdout == -1)
+        return rpce_resource;
+
+    char tmpname_stderr[] = TMP_STDERR;
+    int tmpfd_stderr = mkstemps(tmpname_stderr, TMP_SUFFIX_LEN);
+    if (tmpfd_stderr == -1)
+    {
+        close(tmpfd_stdout);
+        return rpce_resource;
+    }
+
+    add_tempfd_flags(tmpfd_stdout);
+    add_tempfd_flags(tmpfd_stderr);
+
     pid_t cpid = fork();
     switch (cpid)
     {
@@ -261,37 +290,62 @@ static int rpc_try_exec(uid_t uid, const rpc_command_t *command, char **output)
         if (setuid(uid) == -1)
             exit(rpce_privilege);
 
-        int tmpfd_stdout = mkstemps(TMP_SUFFIX "XXXXXX.stdout", TMP_SUFFIX_LEN);
-        if (tmpfd_stdout == -1)
-            exit(rpce_resource);
-
-        int tmpfd_stderr = mkstemps(TMP_SUFFIX "XXXXXX.stderr", TMP_SUFFIX_LEN);
-        if (tmpfd_stderr == -1)
-        {
-            close(tmpfd_stdout);
-            exit(rpce_resource);
-        }
-
         dup2(tmpfd_stdout, STDOUT_FILENO);
         dup2(tmpfd_stderr, STDERR_FILENO);
         close(tmpfd_stdout);
         close(tmpfd_stderr);
 
-        if (execvp(command->argv[0], command->argv + 1) == -1)
+        if (execvp(command->argv[0], command->argv) == -1)
             exit(rpce_command);
 
         exit(rpce_success);
     }
 
     case -1:
+        close(tmpfd_stdout);
+        close(tmpfd_stderr);
+        return rpce_resource;
+
     default:
-        waitpid(cpid, &status, 0);
+        waitpid(cpid, &output->status, 0);
         break;
     }
 
-    *output = "Test output";
+    int outputfd = tmpfd_stdout;
+    if (output->status)
+        outputfd = tmpfd_stderr;
 
-    return status;
+    while (1)
+    {
+        off_t filesize = lseek(outputfd, 0, SEEK_END);
+        if (filesize == -1 || lseek(outputfd, 0, SEEK_SET) == -1)
+        {
+            output->status = rpce_resource;
+            break;
+        }
+
+        char *filebuffer = malloc(filesize);
+        if (filebuffer == NULL)
+        {
+            output->status = rpce_resource;
+            break;
+        }
+
+        if (read(outputfd, filebuffer, filesize) == -1)
+        {
+            free(filebuffer);
+            output->status = rpce_resource;
+            break;
+        }
+
+        output->output = filebuffer;
+        output->length = filesize;
+        break;
+    }
+
+    close(tmpfd_stdout);
+    close(tmpfd_stderr);
+    return rpce_success;
 }
 
 static int rpc_client_handle(client_args_t *args)
@@ -329,7 +383,7 @@ static int rpc_client_handle(client_args_t *args)
     }
 
     // Try execute command & Write output to tmpfile
-    char *output = NULL;
+    rpc_output_t output = {NULL, 0, 0};
     if (rpc_try_exec(record->pw_uid, &command, &output) != rpce_success)
     {
         // Log & exit
@@ -338,6 +392,12 @@ static int rpc_client_handle(client_args_t *args)
     }
 
     // Send output
+    if (rpc_send_output(args->client._socket_descriptor, &output) != me_success)
+    {
+        rpc_send_close(args->client._socket_descriptor, rpce_output);
+        return rpce_output;
+    }
+
     return rpce_success;
 }
 

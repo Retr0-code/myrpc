@@ -77,8 +77,8 @@ void socket_get_address(char *buffer, sockaddr_u *addr, int use_ipv6)
 void socket_shutdown_close(int socket_fd)
 {
     if (shutdown(socket_fd, SHUT_RDWR) != 0)
-        fprintf(stderr, "%s Shuting down client:\t%s\n", WARNING, strerror(errno));
+        fprintf(stderr, "%s Shuting down socket:\t%s\n", WARNING, strerror(errno));
     
     if (close(socket_fd) != 0)
-        fprintf(stderr, "%s Closing client:\t%s\n", WARNING, strerror(errno));
+        fprintf(stderr, "%s Closing socket:\t%s\n", WARNING, strerror(errno));
 }
