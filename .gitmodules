@@ -1,3 +1,4 @@
 [submodule "mysyslog"]
 	path = mysyslog
 	url = https://github.com/Retr0-code/sys-prog-lab-2.git
+	branch = main
