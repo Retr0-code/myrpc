@@ -1,7 +1,7 @@
 #include "list.h"
 #include "myrpc/myrpc_proto.h"
-#include "network_exceptions.h"
 #include "myrpc/myrpc_server.h"
+#include "network_exceptions.h"
 
 #include <pwd.h>
 #include <errno.h>
@@ -12,15 +12,21 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <threads.h>
+#include <sys/wait.h>
 
 #ifndef RPC_DEFAULT_CONFIG
 #define RPC_DEFAULT_CONFIG
 rpc_server_config_t default_config = {
+    {NULL, 0},
+    "127.0.0.1",
     SOCK_STREAM,
     0,
-    "127.0.0.1",
-    135};
+    49135
+};
 #endif
+
+#define TMP_SUFFIX "myRPC_"
+#define TMP_SUFFIX_LEN sizeof(TMP_SUFFIX)
 
 static rpc_server_t *rpc_server_static = NULL;
 
@@ -84,7 +90,7 @@ static int rpc_read_access_list(const char *al_path, rpc_access_list_t *al)
     size_t capacity = 0;
     while (getline(&username, &capacity, al_file) != -1)
     {
-        passwd *user = getpwnam(username);
+        struct passwd *user = getpwnam(username);
         if (user == NULL)
             continue;
 
@@ -143,7 +149,7 @@ static int rpc_parse_config(rpc_server_config_t *config, char **argv, int argc)
         case 'a':
         {
             if (rpc_read_access_list(optarg, &config->access_list) != rpce_success)
-                //TODO set to default
+                // TODO set to default
                 return rpce_user;
 
             break;
@@ -223,13 +229,13 @@ int rpc_server_create(rpc_server_t *server, const rpc_server_config_t *config)
         return status;
     }
 
-    signal(SIGINT,  &signal_handler_stop);
+    signal(SIGINT, &signal_handler_stop);
     signal(SIGTERM, &signal_handler_stop);
 
     return rpce_success;
 }
 
-static int rpc_user_in_list(rpc_access_list_t *al, uid_t uid)
+static int rpc_user_in_list(const rpc_access_list_t *al, uid_t uid)
 {
     for (; al != NULL; al = al->next)
         if (al->uid == uid)
@@ -238,22 +244,67 @@ static int rpc_user_in_list(rpc_access_list_t *al, uid_t uid)
     return rpce_user;
 }
 
-static int rpc_try_exec(uid_t uid, char *command)
+static int rpc_try_exec(uid_t uid, const rpc_command_t *command, char **output)
 {
+    if (command == NULL || output == NULL)
+    {
+        errno = EINVAL;
+        return rpce_invalid_args;
+    }
 
+    int status = rpce_success;
+    pid_t cpid = fork();
+    switch (cpid)
+    {
+    case 0:
+    {
+        if (setuid(uid) == -1)
+            exit(rpce_privilege);
+
+        int tmpfd_stdout = mkstemps(TMP_SUFFIX "XXXXXX.stdout", TMP_SUFFIX_LEN);
+        if (tmpfd_stdout == -1)
+            exit(rpce_resource);
+
+        int tmpfd_stderr = mkstemps(TMP_SUFFIX "XXXXXX.stderr", TMP_SUFFIX_LEN);
+        if (tmpfd_stderr == -1)
+        {
+            close(tmpfd_stdout);
+            exit(rpce_resource);
+        }
+
+        dup2(tmpfd_stdout, STDOUT_FILENO);
+        dup2(tmpfd_stderr, STDERR_FILENO);
+        close(tmpfd_stdout);
+        close(tmpfd_stderr);
+
+        if (execvp(command->argv[0], command->argv + 1) == -1)
+            exit(rpce_command);
+
+        exit(rpce_success);
+    }
+
+    case -1:
+    default:
+        waitpid(cpid, &status, 0);
+        break;
+    }
+
+    *output = "Test output";
+
+    return status;
 }
 
 static int rpc_client_handle(client_args_t *args)
 {
     // Get username
     char *username = NULL;
-    if (rpc_receive_message(args->client._socket_descriptor, &username) != me_success)
+    if (rpc_receive_username(args->client._socket_descriptor, &username) != me_success)
     {
         // Log & exit
         return rpce_user;
     }
 
-    passwd *record = getpwnam(username);
+    struct passwd *record = getpwnam(username);
     if (record == NULL)
     {
         // Log & exit
@@ -270,7 +321,7 @@ static int rpc_client_handle(client_args_t *args)
     }
 
     // Get command
-    char *command = NULL;
+    rpc_command_t command;
     if (rpc_receive_command(args->client._socket_descriptor, &command) != me_success)
     {
         // Log & exit
@@ -278,7 +329,8 @@ static int rpc_client_handle(client_args_t *args)
     }
 
     // Try execute command & Write output to tmpfile
-    if (rpc_try_exec(record->pw_uid, command) != rpce_success)
+    char *output = NULL;
+    if (rpc_try_exec(record->pw_uid, &command, &output) != rpce_success)
     {
         // Log & exit
         rpc_send_close(args->client._socket_descriptor, rpce_command);
@@ -305,6 +357,13 @@ int rpc_server_run(rpc_server_t *server)
     thread_node_t *threads_base = threads;
     while (!sock_server_listen_connection(&server->sock_server, &threads->client_args.client))
     {
+        threads->client_args.al = &server->config.access_list;
+        if (thrd_create(&threads->thread, &rpc_client_handle, &threads->client_args) != thrd_success)
+        {
+            status = rpce_resource;
+            break;
+        }
+
         threads->next = malloc(sizeof(thread_node_t));
         if (threads->next == NULL)
         {
@@ -314,16 +373,9 @@ int rpc_server_run(rpc_server_t *server)
 
         threads = threads->next;
         threads->next = NULL;
-
-        threads->client_args.al = &server->config.access_list;
-        if (thrd_create(&threads->thread, &rpc_client_handle, &threads->client_args) != thrd_success)
-        {
-            status = rpce_resource;
-            break;
-        }
     }
 
-    linked_list_delete(threads_base, &thread_node_destructor);
+    linked_list_delete((linked_list_t *)threads_base, &thread_node_destructor);
     return status;
 }
 
@@ -336,5 +388,5 @@ void rpc_server_close(rpc_server_t *server)
 {
     rpc_server_stop(server);
     sock_server_close(&rpc_server_static->sock_server);
-    linked_list_delete(&server->config.access_list, ll_destructor_default);
+    linked_list_delete((linked_list_t *)&server->config.access_list, ll_destructor_default);
 }

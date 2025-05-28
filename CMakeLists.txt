@@ -8,17 +8,25 @@ set(DIR_SOURCE "src")
 
 # Server variables
 set(SERVER_SRC
+    ${DIR_SOURCE}/list.c
+    ${DIR_SOURCE}/sockutils.c
     ${DIR_SOURCE}/server/server.c
     ${DIR_SOURCE}/server/client.c
     ${DIR_SOURCE}/myrpc/myrpc_server.c
+    ${DIR_SOURCE}/myrpc/protocol.c
+    ${DIR_SOURCE}/myrpc/myrpc_proto.c
 )
 
 set(SERVER_HEAD
+    ${DIR_INCLUDE}/list.h
     ${DIR_INCLUDE}/status.h
+    ${DIR_INCLUDE}/sockutils.h
     ${DIR_INCLUDE}/network_exceptions.h
     ${DIR_INCLUDE}/server/server.h
     ${DIR_INCLUDE}/server/client.h
     ${DIR_INCLUDE}/myrpc/myrpc_server.h
+    ${DIR_INCLUDE}/myrpc/protocol.h
+    ${DIR_INCLUDE}/myrpc/myrpc_proto.h
 )
 
 add_library(${PROJECT_NAME}_server_objs STATIC ${SERVER_SRC})

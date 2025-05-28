@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <stddef.h>
 
 enum message_type_e
 {
@@ -26,7 +27,8 @@ enum message_error_e
     me_bad_socket,
     me_send,
     me_receive,
-    me_peer_end
+    me_peer_end,
+    me_resource
 };
 
 int message_send(int socket_fd, int type, size_t data_length, const char *data);

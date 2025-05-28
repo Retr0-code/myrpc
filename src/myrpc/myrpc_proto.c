@@ -1,8 +1,11 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "myrpc/protocol.h"
 #include "myrpc/myrpc_proto.h"
-#include "myrpc_proto.h"
+
+// MAX_CMD_LEN = 8 kB
+#define MAX_CMD_LEN (1 << 13)
 
 int rpc_receive_username(int fd, char **username)
 {
@@ -14,14 +17,87 @@ int rpc_send_username(int fd, const char *username)
     return message_send(fd, mt_username, strlen(username) + 1, username);
 }
 
-int rpc_receive_command(int fd, char **command)
+int rpc_receive_command(int fd, rpc_command_t *command)
 {
-    return message_receive(fd, mt_request, 0, command);
+    char *packed_command = NULL;
+    int status = message_receive(fd, mt_request, 0, &packed_command);
+
+    command->argc = *(int*)packed_command;
+    command->argv_len = malloc((command->argc + 1) * sizeof(size_t));
+    if (command->argv_len == NULL)
+    {
+        free(packed_command);
+        return me_resource;
+    }
+    command->argv = malloc((command->argc + 1) * sizeof(char*));
+    if (command->argv == NULL)
+    {
+        free(packed_command);
+        free(command->argv_len);
+        return me_resource;
+    }
+
+    memcpy(command->argv_len, packed_command + sizeof(int), command->argc * sizeof(size_t));
+    char *argv_packed = packed_command + sizeof(int) + command->argc * sizeof(size_t);
+    for (size_t i = 0; i < command->argc; ++i)
+    {
+        command->argv[i] = malloc(command->argv_len[i]);
+        strncpy(command->argv[i], argv_packed, command->argv_len[i]);
+        argv_packed += command->argv_len[i];
+    }
+    command->argv_len[command->argc] = 0;
+    command->argv[command->argc] = NULL;
+
+    free(packed_command);
+    return status;
 }
 
-int rpc_send_command(int fd, const char *command, size_t length)
+int rpc_send_command(int fd, const char *command)
 {
-    return message_send(fd, mt_request, length, command);
+    int status = me_success;
+    size_t length = strnlen(command, MAX_CMD_LEN + 1);
+    if (length > MAX_CMD_LEN)
+        return me_invalid_args;
+
+    ++length;
+
+    int argc = 1;
+    for (size_t i = 0; i < length; ++i)
+        argc += (command[i] == ' ');
+
+    // packed rpc_command_t
+    size_t total_length = sizeof(int) + sizeof(size_t) * argc + length;
+    char *packed_command = malloc(total_length);
+    if (packed_command == NULL)
+        return me_resource;
+
+    size_t *cmd_size = packed_command + sizeof(int);
+    char *argv = packed_command + sizeof(int) + sizeof(size_t) * argc;
+    *(int*)packed_command = argc;
+    memcpy(argv, command, length);
+    if (argc == 1)
+    {
+        *cmd_size = length;
+        status = message_send(fd, mt_request, total_length, packed_command);
+        free(packed_command);
+        return status;
+    }
+
+    size_t prev_end = 0;
+    size_t arg_pos = 0;
+    for (size_t i = 0; i < length; ++i)
+    {
+        if (argv[i] == ' ')
+        {
+            argv[i] = 0;
+            cmd_size[arg_pos++] = strlen(argv + prev_end);
+            prev_end = i + 1;
+        }
+    }
+
+    status = message_send(fd, mt_request, total_length, packed_command);
+    free(packed_command);
+    return status;
 }
 
 int rpc_receive_output(int fd, char **output)

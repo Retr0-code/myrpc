@@ -1,17 +1,16 @@
-#include "myrpc/myrpc.h"
+#include "myrpc/myrpc_server.h"
 
 int main(int argc, char **argv)
 {
     rpc_server_t myrpc;
-    rpc_server_config_t config;
 
-    if (rpc_server_read_config(&config, NULL) != rpce_success)
+    if (rpc_server_read_config(&myrpc.config, NULL) != rpce_success)
     {
         perror("Error while reading config");
         return -1;
     }
 
-    if (rpc_server_create(&myrpc, &config))
+    if (rpc_server_create(&myrpc, &myrpc.config))
     {
         perror("Error while setting up the server");
         return -1;

@@ -11,4 +11,4 @@ typedef void (ll_destructor_t)(void*);
 
 void linked_list_delete(linked_list_t *ll, ll_destructor_t *deleter);
 
-linked_list_t *linked_list_last(const linked_list_t *ll);
+linked_list_t *linked_list_last(linked_list_t *ll);
