@@ -82,3 +82,27 @@ void socket_shutdown_close(int socket_fd)
     if (close(socket_fd) != 0)
         fprintf(stderr, "%s Closing socket:\t%s\n", WARNING, strerror(errno));
 }
+
+int str_to_socket_type(const char *str_socktype)
+{
+    struct pair_t
+    {
+        const char *str;
+        int value;
+    } conversion_array[] = {
+        {"SOCK_STREAM", SOCK_STREAM},
+        {"SOCK_DGRAM", SOCK_DGRAM},
+        // {"SOCK_RAW",        SOCK_RAW},
+        // {"SOCK_RDM",        SOCK_RDM},
+        // {"SOCK_SEQPACKET",  SOCK_SEQPACKET},
+        // {"SOCK_DCCP",       SOCK_DCCP},
+        // {"SOCK_PACKET",     SOCK_PACKET}
+    };
+
+    for (size_t i = 0; i < sizeof(conversion_array) / sizeof(struct pair_t); ++i)
+    {
+        if (!strcmp(str_socktype, conversion_array[i].str))
+            return conversion_array[i].value;
+    }
+    return -1;
+}

@@ -48,30 +48,6 @@ static struct option arguments[] = {
     {"access_list", required_argument, 0, 'a'}};
 static const int required_argc = sizeof(arguments) / sizeof(struct option) + 1;
 
-static int str_to_socket_type(const char *str_socktype)
-{
-    struct pair_t
-    {
-        const char *str;
-        int value;
-    } conversion_array[] = {
-        {"SOCK_STREAM", SOCK_STREAM},
-        {"SOCK_DGRAM", SOCK_DGRAM},
-        // {"SOCK_RAW",        SOCK_RAW},
-        // {"SOCK_RDM",        SOCK_RDM},
-        // {"SOCK_SEQPACKET",  SOCK_SEQPACKET},
-        // {"SOCK_DCCP",       SOCK_DCCP},
-        // {"SOCK_PACKET",     SOCK_PACKET}
-    };
-
-    for (size_t i = 0; i < sizeof(conversion_array) / sizeof(struct pair_t); ++i)
-    {
-        if (!strcmp(str_socktype, conversion_array[i].str))
-            return conversion_array[i].value;
-    }
-    return -1;
-}
-
 static void signal_handler_stop(int signal)
 {
     rpc_server_close(rpc_server_static);
@@ -138,6 +114,7 @@ static int rpc_parse_config(rpc_server_config_t *config, char **argv, int argc)
 
         case 'h':
         {
+            // TODO: strncpy optarg
             config->address = optarg ? optarg : config->address;
             break;
         }

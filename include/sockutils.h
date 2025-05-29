@@ -19,3 +19,5 @@ int socket_bind(sockaddr_u *addr, int use_ipv6, int socket_fd, const char *lhost
 void socket_get_address(char *buffer, sockaddr_u *addr, int use_ipv6);
 
 void socket_shutdown_close(int socket_fd);
+
+int str_to_socket_type(const char *str_socktype);
