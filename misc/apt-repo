@@ -1,0 +1,21 @@
+server {
+    listen 80;
+    server_name mysyslog.apt.net;
+
+    access_log /var/log/nginx/apt-repo-access.log;
+    error_log /var/log/nginx/apt-repo-error.log;
+
+    location / {
+        root /var/repo;
+        autoindex on;
+        index index.html;
+    }
+
+    location ~ /(.*)/conf {
+        deny all;
+    }
+
+    location ~ /(.*)/db {
+        deny all;
+    }
+}

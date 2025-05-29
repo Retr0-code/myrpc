@@ -1,0 +1,10 @@
+Package: myrpc-meta
+Version: 1.0
+Architecture: amd64
+Maintainer: myRPC-meta <github.com/Retr0-code>
+Depends: libc6, libmysyslog, myrpc-server, myrpc-client
+Suggests: rpc
+Section: utils
+Priority: optional
+Multi-Arch: foreign
+Description: Meta package myRPC common utils.

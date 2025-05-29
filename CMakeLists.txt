@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.17.0)
 
-project(myRPC VERSION 0.1)
+project(myrpc VERSION 0.1)
 
 # Configure compiler
 set(DIR_INCLUDE "include")

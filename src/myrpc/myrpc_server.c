@@ -176,6 +176,14 @@ static int rpc_parse_config(rpc_server_config_t *config, char **argv, int argc)
     return rpce_success;
 }
 
+static char *remove_spaces(char *str)
+{
+    while (*str == ' ' || *str == '\t') {
+        ++str;
+    }
+    return str;
+}
+
 int rpc_server_read_config(rpc_server_config_t *config, const char *filepath)
 {
     if (config == NULL)
@@ -202,12 +210,18 @@ int rpc_server_read_config(rpc_server_config_t *config, const char *filepath)
     char *arg_line = NULL;
     while (getline(&line, &length, config_file) != -1)
     {
+        char *arg_line_start = remove_spaces(arg_line);
+        if (*arg_line_start == "#")
+            continue;
+
+        arg_line_start = strtok(arg_line_start, "#");
+
         ++argc;
-        size_t line_length = strlen(line);
+        size_t line_length = strlen(arg_line_start);
         argv[argc] = malloc(line_length + 2);
         argv[argc][0] = '-';
         argv[argc][1] = '-';
-        memcpy(argv[argc] + 2, line, line_length);
+        memcpy(argv[argc] + 2, arg_line_start, line_length);
     }
     free(line);
     fclose(config_file);

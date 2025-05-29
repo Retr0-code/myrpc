@@ -1,0 +1,10 @@
+Package: myrpc-server
+Version: 1.0
+Architecture: amd64
+Maintainer: myRPC <github.com/Retr0-code>
+Depends: libc6, libmysyslog
+Suggests: rpc
+Section: utils
+Priority: optional
+Multi-Arch: foreign
+Description: myRPC server and daemon
