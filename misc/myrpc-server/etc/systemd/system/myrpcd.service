@@ -4,7 +4,7 @@ Description="myRPC-server daemon."
 [Service]
 Type=forking
 PIDFile=/run/myrpcd.pid
-ExecStart="/usr/sbin/myRPC-server"
+ExecStart="/usr/sbin/myrpc-server"
 Restart=on-failure
 RestartSec=20s
 
