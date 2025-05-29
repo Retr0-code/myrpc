@@ -72,6 +72,12 @@ int main(int argc, char **argv)
         int use_ipv6;
     } client_parameters = {HOST, PORT, "root", "pwd", SOCK_STREAM, 0};
 
+    if (argc == 1)
+    {
+        show_help(argv[0]);
+        exit(-1);
+    }
+
     while ((option = getopt_long(argc, argv, arguments, arguments_long, &arg_index)) != -1)
     {
         if (flag & (1 << arg_index))
