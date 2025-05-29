@@ -5,6 +5,55 @@
 
 #include "myrpc/protocol.h"
 
+const char *me_strerror(int status)
+{
+    const char *msg = "Success";
+    switch (status)
+    {
+    case me_success:
+        msg = "Success";
+        break;
+
+    case me_invalid_args:
+        msg = "Invalid arguments";
+        break;
+
+    case me_wrong_type:
+        msg = "Wrong message type or \"close\" message";
+        break;
+
+    case me_wrong_length:
+        msg = "Buffer underflow";
+        break;
+
+    case me_bad_socket:
+        msg = "Bad socket file descriptor";
+        break;
+
+    case me_send:
+        msg = "Error while sending message";
+        break;
+
+    case me_receive:
+        msg = "Error while receiving message";
+        break;
+
+    case me_peer_end:
+        msg = "Peer closed";
+        break;
+
+    case me_resource:
+        msg = "Unable to allocate new resources";
+        break;
+
+    default:
+        msg = "Unknown error";
+        break;
+    }
+
+    return msg;
+}
+
 int message_send(int socket_fd, int type, size_t data_length, const char *data)
 {
     if (data_length == 0 && data != NULL || data_length != 0 && data == NULL)
@@ -19,7 +68,7 @@ int message_send(int socket_fd, int type, size_t data_length, const char *data)
         return me_bad_socket;
     }
 
-    net_message_t message = { type, data_length, data };
+    net_message_t message = {type, data_length, data};
     if (send(socket_fd, &message, sizeof(message) - sizeof(message.body), MSG_MORE) == -1)
         return me_send;
 
@@ -40,7 +89,7 @@ int message_receive(int socket_fd, int type, size_t data_length, char **data)
         return me_bad_socket;
     }
 
-    net_message_t message = { 0, 0, NULL };
+    net_message_t message = {0, 0, NULL};
     ssize_t status = 0;
     if ((status = recv(socket_fd, &message, sizeof(message) - sizeof(message.body), 0)) == -1)
         return me_receive;

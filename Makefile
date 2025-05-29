@@ -20,18 +20,21 @@ deb:
 	$(CHMOD) +x misc/deb-build.sh
 	$(CHMOD) +x mysyslog/misc/generate_apt_repo_release.sh
 
-	@if ! $(DOCKER) compose start repo-build; then \
+	@if $(DOCKER) compose start repo-build; then \
 		$(DOCKER) compose up repo-build -d; \
 	fi
 
 deb-clean:
 	$(RM) -rf deb
 
+.PHONY: deb
 repo-deploy:
 	$(CHMOD) +x misc/deb-deploy.sh
-	@if ! $(DOCKER) compose start repo-deploy; then \
+
+	@if $(DOCKER) compose start repo-deploy; then \
 		$(DOCKER) compose up repo-deploy -d; \
 	fi
 
+.PHONY: deb
 repo-stop:
 	$(DOCKER) compose exec repo-deploy /usr/sbin/nginx -s stop

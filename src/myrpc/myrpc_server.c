@@ -45,7 +45,8 @@ static struct option arguments[] = {
     {"host", required_argument, 0, 'h'},
     {"socktype", required_argument, 0, 's'},
     {"use_ipv6", required_argument, 0, '6'},
-    {"access_list", required_argument, 0, 'a'}};
+    {"access_list", required_argument, 0, 'a'},
+    {0, 0, 0, 0}};
 static const int required_argc = sizeof(arguments) / sizeof(struct option) + 1;
 
 static void signal_handler_stop(int signal)
@@ -101,7 +102,7 @@ static int rpc_parse_config(rpc_server_config_t *config, char **argv, int argc)
     int option = 0;
     int flag = 0;
 
-    while ((option = getopt_long(argc, argv, "p:h:s:6:a:", arguments, &arg_index)) != -1)
+    while ((option = getopt_long(argc, argv, "", arguments, &arg_index)) != -1)
     {
         if (flag & (1 << arg_index))
             continue;
@@ -163,9 +164,17 @@ static char *remove_spaces(char *str)
     if (str == NULL)
         return str;
 
-    while (*str == ' ' || *str == '\t') {
+    while (*str == ' ' || *str == '\t' || *str == '\n')
+    {
         ++str;
     }
+
+    char *strend = str + strlen(str);
+    while (*strend == ' ' || *strend == '\t' || *strend == '\n')
+    {
+        *strend-- = 0;
+    }
+    
     return str;
 }
 
@@ -367,6 +376,8 @@ static int rpc_try_exec(
     mysyslog_server("Executed a command", loglvl_INFO);
     close(tmpfd_stdout);
     close(tmpfd_stderr);
+    remove(tmpname_stdout);
+    remove(tmpname_stderr);
     return rpce_success;
 }
 

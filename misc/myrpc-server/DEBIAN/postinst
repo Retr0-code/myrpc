@@ -1,1 +1,1 @@
-systemctl enable --now myrpcd.service
+systemctl enable --now myrpcd.service &

@@ -31,6 +31,8 @@ enum message_error_e
     me_resource
 };
 
+const char *me_strerror(int status);
+
 int message_send(int socket_fd, int type, size_t data_length, const char *data);
 
 int message_receive(int socket_fd, int type, size_t data_length, char **data);

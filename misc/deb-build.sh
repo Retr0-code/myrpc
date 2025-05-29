@@ -25,7 +25,7 @@ PKG_SERVER_FULL_NAME=$DIR_BUILD/${PKG_NAME}-server_${PKG_VERSION}_${PKG_ARCH}
 PKG_CLIENT_FULL_NAME=$DIR_BUILD/${PKG_NAME}-client_${PKG_VERSION}_${PKG_ARCH}
 PKG_META_FULL_NAME=$DIR_BUILD/${PKG_NAME}-meta_${PKG_VERSION}_${PKG_ARCH}
 
-$apt update && $apt upgrade && $apt install -y \
+$apt update && $apt upgrade -y && $apt install -y \
     build-essential \
     dpkg-dev \
     debhelper \
@@ -58,6 +58,8 @@ fi
 
 $chmod 755 $($find $DIR_MISC -name control -type f)
 $chmod 755 $($find $DIR_MISC -name postinst -type f)
+$chmod 755 $($find $DIR_MISC -name prerm -type f)
+$chmod 755 $($find $DIR_MISC -name postrm -type f)
 
 $rm -rf $PKG_SERVER_FULL_NAME 2>/dev/null
 $rm -rf $PKG_CLIENT_FULL_NAME 2>/dev/null
@@ -98,5 +100,5 @@ if [ $? -ne 0 ]; then
 fi
 
 $mkdir -p $DIR_REPO/packages
-$mv $($find . -name "*.deb") $DIR_REPO/packages
+$mv -f $($find . -name "*.deb") $DIR_REPO/packages
 cd $DIR_REPO && $dpkg_scan . /dev/null | $gzip -9c > Packages.gz

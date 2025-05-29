@@ -1,8 +1,10 @@
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <string.h>
+#include <sys/wait.h>
 
 #include "client/client.h"
 #include "myrpc/myrpc_proto.h"
@@ -19,7 +21,8 @@ static struct option arguments_long[] =
         {"command", required_argument, NULL, 'c'},
         {"socktype", optional_argument, NULL, 's'},
         {"ipv6", no_argument, NULL, '6'},
-        {"help", no_argument, NULL, 'm'}};
+        {"help", no_argument, NULL, 'm'},
+        {0, 0, 0, 0}};
 const char *arguments = "h:p:u:c:s:6m";
 
 void show_help(const char *name)
@@ -32,6 +35,25 @@ void show_help(const char *name)
     puts("--socktype\t-s\tspecifies protocol <SOCK_STREAM | SOCK_DGRAM>.");
     puts("--ipv6\t-6\tspecifies which ip version to use (flag).");
     puts("--help\t-m\tshows help menu.");
+}
+
+static char *remove_spaces(char *str)
+{
+    if (str == NULL)
+        return str;
+
+    while (*str == ' ' || *str == '\t' || *str == '\n')
+    {
+        ++str;
+    }
+
+    char *strend = str + strlen(str) - 1;
+    while (*strend == ' ' || *strend == '\t' || *strend == '\n')
+    {
+        *strend-- = 0;
+    }
+    
+    return str;
 }
 
 int main(int argc, char **argv)
@@ -53,7 +75,8 @@ int main(int argc, char **argv)
     while ((option = getopt_long(argc, argv, arguments, arguments_long, &arg_index)) != -1)
     {
         if (flag & (1 << arg_index))
-            continue;
+            if (option == arguments_long[arg_index].val)
+                continue;
 
         switch (option)
         {
@@ -103,6 +126,7 @@ int main(int argc, char **argv)
             size_t length = strlen(optarg) + 1;
             client_parameters.command = malloc(length);
             strncpy(client_parameters.command, optarg, length);
+            client_parameters.command = remove_spaces(client_parameters.command);
             break;
         }
 
@@ -127,19 +151,43 @@ int main(int argc, char **argv)
         return -1;
 
     if (sock_client_connect(&client) != socket_error_success)
+    {
+        fprintf(stderr, "%s Unable to connect to the server %s:%s:\t%s\n",
+                ERROR, client_parameters.host,
+                client_parameters.port, strerror(errno));
         return -1;
+    }
 
-    if (rpc_send_username(client._socket_descriptor, client_parameters.user) != me_success)
+    int status = me_success;
+    if ((status = rpc_send_username(client._socket_descriptor, client_parameters.user)) != me_success)
+    {
+        fprintf(stderr, "%s Unable to send username to the server:\t%s\n",
+                ERROR, me_strerror(status));
         return -1;
+    }
 
-    if (rpc_send_command(client._socket_descriptor, client_parameters.command) != me_success)
+    if ((status = rpc_send_command(client._socket_descriptor, client_parameters.command)) != me_success)
+    {
+        fprintf(stderr, "%s User %s is not in ACL:\t%s\n",
+                ERROR, client_parameters.user, me_strerror(status));
         return -1;
+    }
 
     rpc_output_t output;
-    if (rpc_receive_output(client._socket_descriptor, &output) != me_success)
+    if ((status = rpc_receive_output(client._socket_descriptor, &output)) != me_success)
+    {
+        fprintf(stderr, "%s User %s is not in ACL or output is broken:\t%s\n",
+                ERROR, client_parameters.user, me_strerror(status));
         return -1;
-
-    printf("output:\n%s\ncommand executed with status: %i\n", output.output, output.status);
+    }
     sock_client_stop(&client);
+
+    printf("output:\n%s\n", output.output);
+    if (WIFEXITED(output.status))
+        printf("%s Process exited normaly with status %i\n", INFO, WEXITSTATUS(output.status));
+
+    if (WIFSIGNALED(output.status))
+        printf("%s Process terminated by a signal %i\n", INFO, WTERMSIG(output.status));
+
     return 0;
 }

@@ -141,7 +141,7 @@ int rpc_receive_output(int fd, rpc_output_t *output)
 
     output->status = *(int*)packed_output;
     output->length = *(size_t*)(packed_output + sizeof(int));
-    output->output = malloc(output->length);
+    output->output = malloc(++output->length);
     if (output->output == NULL)
     {
         free(packed_output);
@@ -149,6 +149,7 @@ int rpc_receive_output(int fd, rpc_output_t *output)
     }
     
     strncpy(output->output, packed_output + sizeof(int) + sizeof(size_t), output->length);
+    output->output[output->length - 1] = 0;
     return status;
 }
 
@@ -168,8 +169,8 @@ int rpc_send_output(int fd, const rpc_output_t *output)
     size_t *length = packed_output + sizeof(int);
     char *output_text = packed_output + sizeof(int) + sizeof(size_t);
 
-    *length = output->length + 1;
-    strncpy(output_text, output->output, output->length + 1);
+    *length = output->length;
+    strncpy(output_text, output->output, output->length);
 
     return message_send(fd, mt_response, total_length, packed_output);
 }

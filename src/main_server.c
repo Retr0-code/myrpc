@@ -11,6 +11,8 @@ void daemonize(void);
 
 int main(int argc, char **argv)
 {
+    daemonize();
+
     rpc_server_t myrpc;
     char *config = NULL;
     if (access(CONFIG_FILE, F_OK) == 0)
