@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "myrpc/myrpc_server.h"
 
@@ -11,8 +12,11 @@ void daemonize(void);
 int main(int argc, char **argv)
 {
     rpc_server_t myrpc;
+    char *config = NULL;
+    if (access(CONFIG_FILE, F_OK) == 0)
+        config = CONFIG_FILE;
 
-    if (rpc_server_read_config(&myrpc.config, NULL) != rpce_success)
+    if (rpc_server_read_config(&myrpc.config, config) != rpce_success)
         return -1;
 
     if (rpc_server_create(&myrpc, &myrpc.config))

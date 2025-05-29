@@ -27,9 +27,9 @@
 rpc_server_config_t default_config = {
     {NULL, 0},
     "127.0.0.1",
+    "135",
     SOCK_STREAM,
-    0,
-    135};
+    1};
 #endif
 
 #define TMP_DIR "/tmp"
@@ -74,17 +74,21 @@ static int rpc_read_access_list(const char *al_path, rpc_access_list_t *al)
 
     char *username = NULL;
     size_t capacity = 0;
+    rpc_access_list_t *prev = al;
     while (getline(&username, &capacity, al_file) != -1)
     {
+        username[strlen(username) - 1] = 0;
         struct passwd *user = getpwnam(username);
         if (user == NULL)
             continue;
 
         al->uid = user->pw_uid;
         al->next = malloc(sizeof(rpc_access_list_t));
+        prev = al;
         al = al->next;
     }
-    al->next = NULL;
+    free(prev->next);
+    prev->next = NULL;
 
     free(username);
     fclose(al_file);
@@ -95,7 +99,6 @@ static int rpc_parse_config(rpc_server_config_t *config, char **argv, int argc)
 {
     int arg_index = 0;
     int option = 0;
-    int args_amount = required_argc - 1;
     int flag = 0;
 
     while ((option = getopt_long(argc, argv, "p:h:s:6:a:", arguments, &arg_index)) != -1)
@@ -107,15 +110,17 @@ static int rpc_parse_config(rpc_server_config_t *config, char **argv, int argc)
         {
         case 'p':
         {
-            uint16_t port = atoi(optarg);
-            config->port = port == 0 ? config->port : port;
+            if (optarg)
+                strncpy(config->port, optarg, 6);
+
             break;
         }
 
         case 'h':
         {
-            // TODO: strncpy optarg
-            config->address = optarg ? optarg : config->address;
+            if (optarg)
+                strncpy(config->address, optarg, INET6_ADDRSTRLEN);
+
             break;
         }
 
@@ -155,6 +160,9 @@ static int rpc_parse_config(rpc_server_config_t *config, char **argv, int argc)
 
 static char *remove_spaces(char *str)
 {
+    if (str == NULL)
+        return str;
+
     while (*str == ' ' || *str == '\t') {
         ++str;
     }
@@ -184,28 +192,29 @@ int rpc_server_read_config(rpc_server_config_t *config, const char *filepath)
 
     char *line = NULL;
     size_t length = 0;
-    char *arg_line = NULL;
     while (getline(&line, &length, config_file) != -1)
     {
-        char *arg_line_start = remove_spaces(arg_line);
-        if (*arg_line_start == "#")
+        char *arg_line_start = remove_spaces(line);
+        if (*arg_line_start == '#')
             continue;
 
         arg_line_start = strtok(arg_line_start, "#");
 
         ++argc;
         size_t line_length = strlen(arg_line_start);
+        arg_line_start[line_length - 1] = 0;
         argv[argc] = malloc(line_length + 2);
         argv[argc][0] = '-';
         argv[argc][1] = '-';
         memcpy(argv[argc] + 2, arg_line_start, line_length);
     }
+    ++argc;
     free(line);
     fclose(config_file);
 
     rpc_parse_config(config, argv, argc);
 
-    for (; argc != 1; --argc)
+    for (--argc; argc != 1; --argc)
         free(argv[argc]);
 
     return rpce_success;

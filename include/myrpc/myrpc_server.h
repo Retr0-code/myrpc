@@ -25,10 +25,10 @@ typedef struct thread_node_t
 typedef struct
 {
     rpc_access_list_t access_list;
-    const char *address;
+    char address[INET6_ADDRSTRLEN];
+    char port[6];
     int socket_type;
     int use_ipv6;
-    uint16_t port;
 } rpc_server_config_t;
 
 typedef struct

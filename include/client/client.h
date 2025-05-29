@@ -7,6 +7,7 @@
 typedef struct
 {
     sockaddr_u _address;
+    socklen_t  _addr_len;
     int        _socket_descriptor;
     int        _use_ipv6;
 } sock_client_t;
@@ -14,7 +15,7 @@ typedef struct
 int sock_client_create(
     sock_client_t *client,
     const char *rhost,
-    uint16_t rport,
+    const char *rport,
     int use_ipv6,
     int sock_type
 );

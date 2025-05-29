@@ -28,7 +28,8 @@
 */
 typedef struct sock_server_t
 {
-    sockaddr_u      _address;              // Address descriptor
+    sockaddr_u      _address;               // Address descriptor
+    socklen_t       _addr_len;              // Address length that defines IP version
     atomic_int      _stop_listening;        // State variable for listening thread
     int             _socket_descriptor;     // Descriptor of server socket
     int             _use_ipv6;
@@ -49,8 +50,8 @@ typedef struct sock_server_t
 */
 int sock_server_create(
     sock_server_t *server,
-    const char* lhost,
-    in_port_t lport,
+    const char *lhost,
+    const char *lport,
     int use_ipv6,
     int sock_type
 );

@@ -9,7 +9,7 @@
 int sock_client_create(
     sock_client_t *client,
     const char *rhost,
-    uint16_t rport,
+    const char *rport,
     int use_ipv6,
     int sock_type)
 {
@@ -24,11 +24,15 @@ int sock_client_create(
     if ((client->_socket_descriptor = socket(af, sock_type, 0)) == -1)
         return socket_error_init;
 
-    typedef int (*fill_sockaddr_ptr)(sockaddr_u *, const char *, in_port_t);
-    fill_sockaddr_ptr bind_func = use_ipv6 ? &socket_fill_sockaddr_in6 : &socket_fill_sockaddr_in;
-
-    if ((bind_func)(&client->_address, rhost, rport) != socket_error_success)
+    if (socket_resolve_addr(&client->_address,
+        &client->_addr_len,
+        sock_type,
+        client->_use_ipv6,
+        rhost, rport) != socket_error_success)
+    {
+        socket_shutdown_close(client->_socket_descriptor);
         return socket_error_bind;
+    }
 
     return socket_error_success;
 }
@@ -44,8 +48,8 @@ int sock_client_connect(sock_client_t *client)
     char rhost[INET6_ADDRSTRLEN];
     uint16_t rport = client->_use_ipv6 ? client->_address.addr_v6.sin6_port : client->_address.addr_v4.sin_port;
 
-    if (connect(client->_socket_descriptor, (struct sockaddr*)&client->_address,
-        client->_use_ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)) == -1)
+    socket_get_address(rhost, &client->_address, client->_use_ipv6);
+    if (connect(client->_socket_descriptor, (struct sockaddr*)&client->_address, client->_addr_len) == -1)
     {
         fprintf(stderr, "%s Client could not connect to server %s:%u:\t%s\n", ERROR, rhost, rport, strerror(errno));
         return socket_error_bind;

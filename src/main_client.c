@@ -2,24 +2,25 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <string.h>
 
 #include "client/client.h"
 #include "myrpc/myrpc_proto.h"
 #include "network_exceptions.h"
 
 #define HOST "0.0.0.0"
-#define PORT 135
+#define PORT "135"
 
 static struct option arguments_long[] =
     {
         {"host", required_argument, NULL, 'h'},
         {"port", required_argument, NULL, 'p'},
         {"user", required_argument, NULL, 'u'},
-        {"command", required_argument, 'c'},
+        {"command", required_argument, NULL, 'c'},
         {"socktype", optional_argument, NULL, 's'},
         {"ipv6", no_argument, NULL, '6'},
-        {"help", no_argument, NULL, '?'}};
-const char *arguments = "h:p:u:c:s:6?";
+        {"help", no_argument, NULL, 'm'}};
+const char *arguments = "h:p:u:c:s:6m";
 
 void show_help(const char *name)
 {
@@ -30,7 +31,7 @@ void show_help(const char *name)
     puts("--command\t-c\tspecifies command sent to the server.");
     puts("--socktype\t-s\tspecifies protocol <SOCK_STREAM | SOCK_DGRAM>.");
     puts("--ipv6\t-6\tspecifies which ip version to use (flag).");
-    puts("--help\t-?\tshows help menu.");
+    puts("--help\t-m\tshows help menu.");
 }
 
 int main(int argc, char **argv)
@@ -41,12 +42,13 @@ int main(int argc, char **argv)
 
     struct
     {
-        char *host;
+        char host[INET6_ADDRSTRLEN];
+        char port[6];
         char *user;
+        char *command;
         int socktype;
         int use_ipv6;
-        uint16_t port;
-    } client_parameters = {HOST, "root", SOCK_STREAM, 0, PORT};
+    } client_parameters = {HOST, PORT, "root", "pwd", SOCK_STREAM, 0};
 
     while ((option = getopt_long(argc, argv, arguments, arguments_long, &arg_index)) != -1)
     {
@@ -57,15 +59,15 @@ int main(int argc, char **argv)
         {
         case 'p':
         {
-            uint16_t port = atoi(optarg);
-            client_parameters.port = port == 0 ? client_parameters.port : port;
+            if (optarg)
+                strncpy(client_parameters.port, optarg, 6);
             break;
         }
 
         case 'h':
         {
-            // TODO: strncpy optarg
-            client_parameters.host = optarg ? optarg : client_parameters.host;
+            if (optarg)
+                strncpy(client_parameters.host, optarg, INET6_ADDRSTRLEN);
             break;
         }
 
@@ -78,17 +80,33 @@ int main(int argc, char **argv)
 
         case '6':
         {
-            client_parameters.use_ipv6 = atoi(optarg) > 0;
+            client_parameters.use_ipv6 = 1;
             break;
         }
 
         case 'u':
         {
-            client_parameters.use_ipv6 = atoi(optarg) > 0;
+            if (optarg == NULL)
+                break;
+
+            size_t length = strlen(optarg) + 1;
+            client_parameters.user = malloc(length);
+            strncpy(client_parameters.user, optarg, length);
             break;
         }
 
-        case '?':
+        case 'c':
+        {
+            if (optarg == NULL)
+                break;
+
+            size_t length = strlen(optarg) + 1;
+            client_parameters.command = malloc(length);
+            strncpy(client_parameters.command, optarg, length);
+            break;
+        }
+
+        case 'm':
         {
             show_help(argv[0]);
             exit(0);
@@ -101,7 +119,6 @@ int main(int argc, char **argv)
     }
 
     sock_client_t client;
-    // if (sock_client_create(&client, HOST, PORT, 0, SOCK_STREAM) != socket_error_success)
     if (sock_client_create(&client,
                            client_parameters.host,
                            client_parameters.port,
@@ -112,10 +129,10 @@ int main(int argc, char **argv)
     if (sock_client_connect(&client) != socket_error_success)
         return -1;
 
-    if (rpc_send_username(client._socket_descriptor, "root") != me_success)
+    if (rpc_send_username(client._socket_descriptor, client_parameters.user) != me_success)
         return -1;
 
-    if (rpc_send_command(client._socket_descriptor, "ls -la") != me_success)
+    if (rpc_send_command(client._socket_descriptor, client_parameters.command) != me_success)
         return -1;
 
     rpc_output_t output;

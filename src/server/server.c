@@ -9,7 +9,7 @@
 int sock_server_create(
     sock_server_t *server,
     const char *lhost,
-    in_port_t lport,
+    const char *lport,
     int use_ipv6,
     int sock_type)
 {
@@ -26,16 +26,24 @@ int sock_server_create(
     if (server->_socket_descriptor == -1)
         return socket_error_init;
 
-    if (socket_bind(&server->_address,
-                server->_use_ipv6,
-                server->_socket_descriptor,
-                lhost, lport
-    ) != socket_error_success)
+    if (socket_resolve_addr(&server->_address,
+                    &server->_addr_len,
+                    sock_type,
+                    server->_use_ipv6,
+                    lhost, lport) != socket_error_success)
     {
         sock_server_close(server);
         return socket_error_bind;
     }
-    
+
+    if (bind(server->_socket_descriptor,
+             (struct sockaddr *)&server->_address,
+             server->_addr_len) != 0)
+    {
+        sock_server_close(server);
+        return socket_error_bind;
+    }
+
     return socket_error_success;
 }
 
@@ -67,7 +75,7 @@ int sock_server_listen_connection(sock_server_t *server, client_interface_t *cli
 int sock_server_accept_client(sock_server_t *server, client_interface_t *client)
 {
     socklen_t socket_length = sizeof(struct sockaddr);
-    int new_client_socket = accept(server->_socket_descriptor, (struct sockaddr*)&server->_address, &socket_length);
+    int new_client_socket = accept(server->_socket_descriptor, (struct sockaddr *)&server->_address, &socket_length);
     if (new_client_socket < 0)
         return socket_error_listen;
 

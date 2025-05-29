@@ -130,7 +130,6 @@ int rpc_receive_output(int fd, rpc_output_t *output)
         char output[length];
     }
     */
-    size_t total_length = output->length + 1 + sizeof(int) + sizeof(size_t);
     char *packed_output = NULL;
 
     int status = message_receive(fd, mt_response, 0, &packed_output);
