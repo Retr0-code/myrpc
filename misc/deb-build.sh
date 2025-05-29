@@ -11,7 +11,6 @@ mkdir=/usr/bin/mkdir
 apt=/usr/bin/apt-get
 chmod=/usr/bin/chmod
 chown=/usr/bin/chown
-nginx=/usr/sbin/nginx
 dpkg_deb=/usr/bin/dpkg-deb
 dpkg_scan=/usr/bin/dpkg-scanpackages
 
@@ -31,7 +30,6 @@ $apt update && $apt upgrade && $apt install -y \
     dpkg-dev \
     debhelper \
     devscripts \
-    nginx \
     make \
     cmake \
     ninja-build
@@ -102,8 +100,3 @@ fi
 $mkdir -p $DIR_REPO/packages
 $mv $($find . -name "*.deb") $DIR_REPO/packages
 cd $DIR_REPO && $dpkg_scan . /dev/null | $gzip -9c > Packages.gz
-
-$chown www-data:www-data -R /var/repo
-
-$ln -s /etc/nginx/sites-available/apt-repo /etc/nginx/sites-enabled/apt-repo
-$nginx -g "daemon off;"

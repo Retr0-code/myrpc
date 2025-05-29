@@ -1,14 +1,22 @@
 services:
-  repo:
+  repo-build:
     image: amd64/debian
-    command: ["misc/deb-build-setup.sh"]
+    command: ["misc/deb-build.sh"]
 
     volumes:
       - ./:/opt/myrpc:rw
       - ./deb:/var/repo
-      - ./misc/apt-repo:/etc/nginx/sites-available/apt-repo:ro
 
     working_dir: /opt/myrpc
+
+  repo-deploy:
+    image: amd64/debian
+    command: ["/opt/deb-deploy.sh"]
+    volumes:
+      - ./deb:/var/repo
+      - ./misc/deb-deploy.sh:/opt/deb-deploy.sh:ro
+      - ./misc/apt-repo:/etc/nginx/sites-available/apt-repo:ro
+
     ports:
       - 8080:80
 
