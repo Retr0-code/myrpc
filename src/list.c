@@ -4,6 +4,9 @@
 
 void linked_list_delete(linked_list_t *ll, ll_destructor_t *deleter)
 {
+    if (ll == NULL)
+        return ;
+
     if (ll->next != NULL)
         linked_list_delete(ll->next, deleter);
 
