@@ -6,6 +6,14 @@ Own basic implementation of RPC server and client for linux
 
 **Initialize git submodules before building**
 
+Build requirements:
+ - make
+ - cmake
+ - docker
+ - docker-compose
+
+---
+
  - `make all` target builds all binaries;
  - `make deb` target builds .deb packages and places them into _/deb_ direcory;
  - `make deb-clean` target removes all debian files;
